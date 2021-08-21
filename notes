@@ -14,8 +14,19 @@
 
 -- For example if we wanted to have a thing that processed the comments on this module:
 
+struct Comment {
+    inner: CommentSet,
+    outer: CommentSet,
+}
+
+struct CommentSet {
+    things: List[Comment]
+}
+
 -- really you'd wanna do this for TODOs
 fun check_for_notes(thing: Any):
+    -- foo
+
     for c in comments(thing).inner:
         if c.lstrip().lcase().starts_with("note"):
             panic("you've got a note: `%<c>` (%<c.span>)!")
@@ -107,6 +118,40 @@ fun why_would_you_do_this(some_param):
 -- i think we'd have them be accessible on like; `flub.ack` or something but
 -- not on `ack` within the function
 fun flub(
-    -- hi there
+    -- `ack` should be 5
     ack
-)
+):
+
+    -- inner comments shouldn't be able to access the current scope; only parent
+    -- scopes
+    --
+    -- i.e. this would be a problem:
+    -- eiruhfieruhf %<ack>
+
+    -- more things
+    ack = 5
+
+
+    -- asl;dkfj
+    a = ack + 5 -- thigngs
+
+    -- stuff
+    ack + 3
+
+    wrapper_name = "foo_" + comments(ack).outer.split(" ")[0]
+
+    wrapper = """
+        def %<wrapper_name>():
+            print("hi there")
+        ()
+    """
+
+    [--
+        %<wrapper>
+    --]
+    a = ()
+
+comments(flub)
+
+
+>.> this is a comment <.<
