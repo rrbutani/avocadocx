@@ -1,0 +1,21 @@
+## Toolchain ##
+
+# We register our LLVM toolchains in `WORKSPACE` but we have to enable actually
+# *using* toolchain resolution for `rules_cc` like this:
+#
+# (see: https://github.com/bazelbuild/bazel/issues/7260)
+build --incompatible_enable_cc_toolchain_resolution
+
+# We want LTO!
+build --features thin_lto
+
+# Running the toolchain out of the sandbox can introduce additional overhead;
+# having the sandbox live in shared memory can help with this.
+#
+# There isn't a cross-platform way to do this so it's not enabled here but
+# feel free to copy the below to your `.bazelrc.user` file if you're on Linux
+# (note that this file is *not* checked into the repo).
+# build --sandbox_base=/dev/shm
+
+## User Specific Config ##
+try-import %workspace%/.bazelrc.user
