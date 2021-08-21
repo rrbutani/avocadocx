@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true,
+		"liveshare.autoShareTerminals": true,
+		"liveshare.allowGuestDebugControl": true,
+		"liveshare.allowGuestTaskControl": true,
+		"liveshare.languages.allowGuestCommandControl": true,
+		"liveshare.notebooks.allowGuestExecuteCells": true,
+		"rust-analyzer.assist.importEnforceGranularity": true,
+		"rust-analyzer.checkOnSave.command": "clippy"
+	},
+	"extensions": {
+		"recommendations": [
+			"bazelbuild.vscode-bazel",
+			"bungcip.better-toml",
+			"serayuzgur.crates",
+			"eamodio.gitlens",
+			"yuenm18.ooxml-viewer",
+			"matklad.rust-analyzer",
+		]
+	}
+}
