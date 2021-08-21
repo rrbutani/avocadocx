@@ -1,0 +1,112 @@
+
+[--
+    comments attach to the very next thing (more than 1 newline makes them
+    attached to the parent? actually nah, free floating is fine
+
+    actually lets have them be comments().inner)
+--]
+
+[--
+    the "type annotations" are fake and just for documentation/show; we won't check them
+--]
+
+[-- note: auto-dedent on comments --]
+
+-- For example if we wanted to have a thing that processed the comments on this module:
+
+-- really you'd wanna do this for TODOs
+fun check_for_notes(thing: Any):
+    for c in comments(thing).inner:
+        if c.lstrip().lcase().starts_with("note"):
+            panic("you've got a note: `%<c>` (%<c.span>)!")
+
+    -- alternatively if you want to emit errors for all the notes:
+    errors = "\n".join([
+        """compile_error("you've got a note: `%<c>` (%<c.span>)!)")"""
+        for c in comments(thing).inner if c.lstrip().lcase().starts_with("note")
+    ])
+
+    [--
+        %<errors>
+    --]
+    ""
+
+-- we can't do \%<check_for_notes(Main)> because then we'd have a cycle
+
+-- but we can do:
+
+[--
+    %<
+        check_for_notes(Main)
+    >
+--]
+priv const _checks = ()
+
+type HtmlBlob = Str
+
+fun markdown_renderer(inp: Str) -> HtmlBlob = unimplemented(":-(")
+
+fun code_block(block: List[Str], lang_hint: str = "grape") -> HtmlBlob:
+    block = "\n".join([
+        for l in block.lines() if not l.strip().starts_with("#")
+    ])
+
+    markdown_renderer(
+        "```%{lang_hint}\n%{block}\n```"
+    )
+
+fun doctest(test: Any) -> CodeBlock:
+    -- we don't actually use the _value_ of `test`; just its comments
+
+    -- we want to actually _run_ this code block at compile time so we embed
+    -- it in a comment on the thing we produce – you can recurse like this
+    -- for as long as you like :-P
+
+    code = comments(test).outer
+    [--
+        %<code>
+    --]
+    code_block(code)
+
+[--
+    this is a comment
+
+    you can "embed" code in your comments like this:
+    (the code is _evaluated_; it's output – which should be some printable type –
+    is what ultimately lands in the docs)
+    %<
+        doctest(
+            [--
+            fun foo() = print("hi there!")
+            # foo()
+            --]
+            ()
+        )
+    >
+--]
+fun some_rando_function() = unimplemented()
+
+
+-- this means that you can also pass in data on the _comments_ of parameters
+fun why_would_you_do_this(some_param):
+    if comments(some_param).outer.empty():
+        panic("comment your stuff, yo")
+
+-- i think there are problems with what's described above and maintaining a real
+-- compile-time/run time distinction
+--
+-- like if you have some function that returns a thing that has generated comments
+-- and then you pass that thing to another function that then reads those comments
+-- when is the code for the comments expanded?
+--
+-- maybe it's only expanded at compile-time for _items_
+-- yeah okay that seems like it'd work
+
+-- not sure what to do about comments on args in functions; i.e.:
+--
+-- i think we'd have them be accessible on like; `flub.ack` or something but
+-- not on `ack` within the function
+fun flub(
+    -- hi there
+    ack
+)
