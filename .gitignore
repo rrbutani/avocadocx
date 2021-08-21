@@ -1,1 +1,7 @@
+# Bazel
+/bazel-*
+/.bazelrc.user
+
+# Rust
+Cargo.lock
 target
