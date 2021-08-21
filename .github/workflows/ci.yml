@@ -1,0 +1,85 @@
+on:   push
+name: ci
+jobs:
+  ci:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cache_path: "/home/runner/.cache/bazel/_bazel_runner"
+            test_wasm: true
+          - os: macos-latest
+            cache_path: "/private/var/tmp/_bazel_runner"
+            test_wasm: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: load the Bazel cache
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ matrix.cache_path }}
+          key: ${{ runner.os }}-bazel-${{ hashFiles('**') }}
+          restore-keys: |
+            ${{ runner.os }}-bazel
+      - name: bazel tests
+        run: bazel test --test_output=errors //... --keep_going
+      - name: bazel tests (wasm)
+        if: matrix.test_wasm
+        run: bazel test --test_output=errors //... --keep_going --platforms //:wasm
+
+      # TODO: either move this into Bazel eventually
+      # or add the appropriate caching, etc.
+      - name: load the Cargo cache
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.target }}-cargo-
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable # TODO: MSRV, if we want to bother with that
+          components: rustfmt, clippy
+      - name: cargo tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: >-
+            --workspace
+            --no-fail-fast
+            --all-features
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: >-
+            --workspace
+            --all-targets
+            --all-features
+            -- -D warnings
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - uses: actions-rs/toolchain@v1
+        if: matrix.test_wasm
+        with:
+          profile: minimal
+          toolchain: stable # TODO: MSRV, if we want to bother with that
+          components: rustfmt, clippy
+          target: wasm32-wasi
+        - name: cargo clippy (wasm)
+        uses: actions-rs/cargo@v1
+        if: matrix.test_wasm
+        with:
+          command: clippy
+          args: >-
+            --workspace
+            --all-targets
+            --all-features
+            --target wasm32-wasi
+            -- -D warnings
