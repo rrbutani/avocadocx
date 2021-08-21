@@ -22,15 +22,15 @@
         * chk namespaces (fonts)
           - text files (i.e. std) should have no font (no namespace) and can be called from anywhere
         * chk privacy (boxes)
-  - avocadocx-std
-    - just `include!("std.cado")` -> lex -> parse -> AST
-  - avocadocx-runtime
+    - abogado-codegen
+      + links against `runtime`; includes it in the binaries it makes
+      + this is *not* wasm compatible
   - avocadocx-interpreter
     + depends on `runtime`, just calls it
     + should take a `Writer` to write output into
-  - avocadocx-codegen
-    + links against `runtime`; includes it in the binaries it makes
-    + this is *not* wasm compatible
+  - avocadocx-runtime
+  - avocadocx-std
+    - just `include!("std.cado")` -> lex -> parse -> AST
   - avocadocx-web
     + main page (first):
       * single text box for the google doc id
@@ -80,6 +80,8 @@
   - [ ] syntax highlighting for `.cado`, the text form
 
   - [ ] fix the email address on commits?
+
+  - [ ] tests that take .docx inputs and check stderr, etc.
 
 # Questions
   - [ ] do we want to have a printable form for the extra attributes?

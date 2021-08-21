@@ -12,7 +12,13 @@
 		"liveshare.languages.allowGuestCommandControl": true,
 		"liveshare.notebooks.allowGuestExecuteCells": true,
 		"rust-analyzer.assist.importEnforceGranularity": true,
-		"rust-analyzer.checkOnSave.command": "clippy"
+		"rust-analyzer.checkOnSave.command": "clippy",
+		"files.exclude": {
+			"./bazel-avocadocx/": true,
+			"./bazel-bin/": true,
+			"./bazel-out/": true,
+			"./bazel-testlogs/": true
+		}
 	},
 	"extensions": {
 		"recommendations": [
