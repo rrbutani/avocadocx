@@ -1,0 +1,40 @@
+[package]
+name = "avocadocx-web"
+version = "0.0.0"  # keep in sync
+authors = [
+    "Rahul Butani <r.r.butan.i+crates@gmail.com>",
+    "Joseph Ryan <josephryan3.14+crates@gmail.com>"
+]
+edition = "2018"
+
+description = """TODO"""
+documentation = "https://docs.rs/avocadocx-web"
+homepage = "https://github.com/rrbutani/avocadocx/tree/main/bin/web"
+repository = "https://github.com/rrbutani/avocadocx/tree/main/bin/web"
+
+readme = "README.md"
+
+# TODO:
+# keywords = {{{ crate keywords }}}
+# categories = {{{ crate categories: https://crates.io/category_slugs }}}
+
+license = "MIT"
+# exclude = [""] # TODO
+
+[badges]
+is-it-maintained-issue-resolution = { repository = "rrbutani/avocadocx" }
+is-it-maintained-open-issues = { repository = "rrbutani/avocadocx" }
+maintenance = { status = "actively-developed" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+
+[features]
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown", "wasm32-wasi"]
+rustdoc-args = ["--cfg", "docs"]
+all-features = true
+default-target = "wasm32-wasi"

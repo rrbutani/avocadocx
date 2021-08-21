@@ -1,0 +1,69 @@
+[package]
+name = "avocadocx"
+version = "0.0.0"  # keep in sync
+authors = [
+    "Rahul Butani <r.r.butan.i+crates@gmail.com>",
+    "Joseph Ryan <josephryan3.14+crates@gmail.com>"
+]
+edition = "2018"
+
+description = """TODO"""
+documentation = "https://docs.rs/avocadocx"
+homepage = "https://github.com/rrbutani/avocadocx"
+repository = "https://github.com/rrbutani/avocadocx"
+
+readme = "README.md"
+
+# TODO:
+# keywords = {{{ crate keywords }}}
+# categories = {{{ crate categories: https://crates.io/category_slugs }}}
+
+license = "MIT"
+
+exclude = [".github"] # TODO
+
+[badges]
+is-it-maintained-issue-resolution = { repository = "rrbutani/avocadocx" }
+is-it-maintained-open-issues = { repository = "rrbutani/avocadocx" }
+maintenance = { status = "actively-developed" }
+
+[profile.release]
+opt-level = 3
+lto = true
+debug = true
+
+[[bin]]
+path = "bin/desktop.rs"
+name = "avocadocx"
+
+[dependencies]
+structopt = "0.3"
+
+[features]
+compile = []
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+rustdoc-args = ["--cfg", "docs"]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+
+
+[workspace]
+members = [
+    # Compiler
+    "compiler/common",
+    "compiler/lex",
+    "compiler/parse",
+    "compiler/ast",
+    "compiler/passes",
+    "compiler/codegen",
+
+    # Libraries
+    "library/runtime",
+    "library/std",
+    "library/interpreter",
+
+    # Web
+    "bin/web",
+]
