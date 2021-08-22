@@ -136,11 +136,11 @@ async fn main() -> color_eyre::Result<()> {
     use abogado_parse::Parser as _;
     let program = abogado_parse::statement().repeated().parse(tokens).unwrap();
 
-    for statement in program {
+    for statement in program.clone() {
         println!("{}", statement.inner);
     }
 
-    run_program(program);
+    avocadocx_interpreter::run_program(program.iter().map(|n| n.inner.clone()).collect());
 
     Ok(())
 }

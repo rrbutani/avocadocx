@@ -24,8 +24,8 @@ BAZEL_SKYLIB_SHA = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952d
 LLVM_VER = "llvmorg-13.0.0-rc1"
 LLVM_SHA = "7697c5716914c281ef7e656f3f1bb2fb4004c3d7ae223be83f9d05c01c02f81b"
 
-RULES_RUST_VER = "8ae83f07c268352aa845699d7a0afbc73e3c7f07"
-
+RULES_RUST_VER = "a814d859845c420fd105c629134c4a4cb47ba3f8"
+RULES_RUST_SHA = ""
 
 def conditionally(excludes, next_func, **kwargs):
     if kwargs["name"] not in excludes:
@@ -135,4 +135,13 @@ def repos(excludes = []):
         canonical_id = LLVM_VER,
         strip_prefix = "llvm-project-{ver}/utils/bazel".format(ver = LLVM_VER),
         url = "https://github.com/llvm/llvm-project/archive/{ver}.tar.gz".format(ver = LLVM_VER),
+    )
+
+    conditionally(
+        excludes,
+        http_archive,
+        name = "rules_rust",
+        strip_prefix = "rules_rust-{ver}".format(ver = RULES_RUST_VER),
+        sha256 = RULES_RUST_SHA,
+        url = "https://github.com/bazelbuild/rules_rust/archive/{ver}.tar.gz".format(ver = RULES_RUST_VER),
     )

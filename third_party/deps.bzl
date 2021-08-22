@@ -6,6 +6,9 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")  # buildifier:
 load("@com_grail_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")  # buildifier: disable=out-of-order-load
 load("@llvm-bazel//:configure.bzl", "llvm_configure", "llvm_disable_optional_support_deps")  # buildifier: disable=out-of-order-load
+load("@rules_rust//rust:repositories.bzl", "rust_repositories")
+load("@rules_rust//wasm_bindgen:repositories.bzl", "rust_wasm_bindgen_repositories")
+load("//crates:crates.bzl", "raze_fetch_remote_crates")
 
 def closure(func, *args, **kwargs):
     return (func, args, kwargs)
@@ -29,6 +32,16 @@ SETUP_FUNCTIONS = {
         ),
         # Disables `zlib` and `terminfo` deps.
         llvm_disable_optional_support_deps,
+    ],
+    "rule_rust": [
+        closure(
+            rust_repositories,
+            version = "nightly",
+            iso_date = "2021-08-16",
+            edition = "2018",
+        ),
+        rust_wasm_bindgen_repositories,
+        raze_fetch_remote_crates,
     ],
 }
 

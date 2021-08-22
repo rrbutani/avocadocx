@@ -15,7 +15,7 @@ pub mod token;
 
 use std::{convert::TryInto, num::ParseFloatError};
 
-use docx_rs::{DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
+use docx_rs::{DocumentChild, Docx, ParagraphChild, RunChild};
 use thiserror::Error;
 
 pub use span::Span;

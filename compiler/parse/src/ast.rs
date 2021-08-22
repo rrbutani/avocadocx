@@ -1,8 +1,6 @@
 use std::fmt::{self, Display};
-use std::ops::{BitAnd, BitOr, Deref, DerefMut};
 
-use abogado_lex::{spanned::S, Op, Span, Style, Token};
-use Token::*;
+use abogado_lex::{spanned::S, Op};
 
 #[derive(Debug, Clone)]
 pub enum Statement {

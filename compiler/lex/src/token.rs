@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt::{self, Display, Write}, ops::{BitOr, BitAnd, Range}};
+use std::{convert::TryFrom, fmt::{self, Display, } };
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {

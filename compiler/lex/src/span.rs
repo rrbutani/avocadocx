@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt::{self, Display, Write}, ops::{BitOr, BitAnd, Range}};
+use std::{fmt::Display , ops::{BitOr, Range}};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span {

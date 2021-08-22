@@ -1,4 +1,4 @@
-use docx_rs::{Justification, Paragraph, ParagraphProperty, ParagraphStyle, RunProperty};
+use docx_rs::{Justification, ParagraphStyle, RunProperty};
 use std::ops::BitAnd;
 
 #[derive(Debug, Clone, PartialEq, Default)]

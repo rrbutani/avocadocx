@@ -8,7 +8,7 @@
     html_root_url = "https://docs.rs/abogado-parse/0.0.0", // remember to bump!
 )]
 
-mod ast;
+pub mod ast;
 
 use abogado_lex as lex;
 
@@ -18,7 +18,7 @@ pub use chumsky::Parser;
 use ast::*;
 use lex::{
     spanned::S,
-    Keyword::{self, *},
+    Keyword,
     Op, Sigil, Span, Token,
 };
 
