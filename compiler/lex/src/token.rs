@@ -2,7 +2,6 @@ use std::{convert::TryFrom, fmt::{self, Display, Write}, ops::{BitOr, BitAnd, Ra
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Punc,
     StringConst(String),
     Num(f64),
     Ident(String),
@@ -19,10 +18,6 @@ pub enum Keyword {
     Do,
     Using,
     Get,
-    Same,
-    Different,
-    More,
-    Less,
     Also,
     And,
     Not,
@@ -36,6 +31,8 @@ pub enum Keyword {
     Takes,
     Does,
     Else,
+    Emit,
+    From,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,10 +85,13 @@ pub enum Op {
     Sub = 1,
     Mul = 2,
     Div = 3,
+    Eq = 4,
+    Lt = 5,
+    Gt = 6,
 }
 
 impl Op {
-    pub const OPERATORS: &'static str = "+-*/";
+    pub const OPERATORS: &'static str = "+-*/=<>";
 }
 
 impl Display for Op {
@@ -109,6 +109,9 @@ impl TryFrom<&str> for Op {
             "-" => Self::Sub,
             "*" => Self::Mul,
             "/" => Self::Div,
+            "=" => Self::Eq,
+            "<" => Self::Lt,
+            ">" => Self::Gt,
             _ => return Err(()),
         })
     }

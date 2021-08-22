@@ -1,4 +1,5 @@
 use docx_rs::{read_docx, read_zip, Docx};
+use lex;
 
 use std::env::args;
 use std::error::Error;

@@ -27,6 +27,8 @@ is-it-maintained-open-issues = { repository = "rrbutani/avocadocx" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+abogado-parse = "0.0.0"
+abogado-lex = "0.0.0"
 
 [features]
 

@@ -43,10 +43,10 @@ input
 ```
 stmt:
   <expr> <punc>
-  while <expr> keep running <expr>
+  while <expr> run <expr>
   keep running <expr> until <expr>
   run <expr> for <ident> in <expr>
-  procedure <ident> takes <list> and does <expr>
+  procedure <ident> takes <list> does <expr>
   # todo: import _ from <link>
 
 <punc> = ";.\n"
@@ -55,17 +55,16 @@ block:
   `(` stmt* (<expr>)? `)`
 
 expr:
+  is <expr> ? <expr> (otherwise <expr>)?
   set <ident> to <expr>
   <block>
-  <expr> ! # prints
-  is <expr> (same as | different than | more than | less than) <expr>
-  <expr> ? (\n)* <expr> (otherwise <expr>)? # if
+  get <expr> from <expr>
+  emit <expr> ! # prints
   do <ident> using <list>
-  <expr> <binop> <expr> # +, -, *, /
+  <expr> <binop> <expr> # +, -, *, /, =, >, <
   <unop> <expr> # not, -, neg
   <ident>
   <const>
-  get <expr> from <expr>
 
 const:
   <num>(st|nd|rd|th)?

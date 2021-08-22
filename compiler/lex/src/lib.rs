@@ -8,19 +8,19 @@
     html_root_url = "https://docs.rs/abogado-lex/0.0.0", // remember to bump!
 )]
 
-pub mod token;
-pub mod style;
 pub mod span;
 pub mod spanned;
+pub mod style;
+pub mod token;
+
+use std::num::ParseFloatError;
 
 use docx_rs::{DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
 use thiserror::Error;
 
-pub use token::{
-    Token, Keyword, Sigil, Op,
-};
-pub use style::Style;
 pub use span::Span;
+pub use style::Style;
+pub use token::{Keyword, Op, Sigil, Token};
 
 type S = spanned::S<Token>;
 
@@ -82,6 +82,8 @@ pub enum LexError {
     UnexpectedEof { looking_for: Option<String> },
     #[error("unexpected closing quote")]
     UnexpectedClosingQuote,
+    #[error("float parse error: {0}")]
+    FloatParseError(#[from] ParseFloatError),
 }
 // TODO: span these ^
 
@@ -125,7 +127,6 @@ fn collate(
         };
 
         match c {
-            c if c.is_numeric() => {}
             '"' => {
                 // Just eat chars until we see another `"`:
                 let start_offset = start_ofs;
@@ -194,6 +195,70 @@ fn collate(
             c if WHITESPACE.contains(c) => {
                 // do nothing for white space
             }
+            c if (c == '.'
+                && char_iter
+                    .peek()
+                    .filter(|(_, c, _)| c.is_numeric())
+                    .is_some())
+                || c.is_numeric() =>
+            {
+                // we've got ourselves a number!
+
+                // we'll eat characters while we're getting numbers and have seen up to 1 dot:
+                let mut seen_a_dot = false;
+                let starting_offset = start_ofs;
+                let mut ending_ofs = start_ofs;
+                let mut num = String::from(c);
+                let mut token_style_id = style_id;
+
+                let mut extra_dot_token = None;
+
+                while let Some(((start, end_pos), c, style_id)) = char_iter.next() {
+                    if !(c.is_numeric() || c == '.') {
+                        break;
+                    // if this is our second dot or if it's not followed by
+                    // a numeric char, it's not part
+                    // of the number:
+                    } else if c == '.'
+                        && (seen_a_dot
+                            || char_iter
+                                .peek()
+                                .filter(|(_, c, _)| c.is_numeric())
+                                .is_none())
+                    {
+                        // since we've consumed it we've got to add it to the tokens
+                        extra_dot_token = Some(S {
+                            inner: Token::Sigil(Sigil::Dot),
+                            span: Span {
+                                inner: start..end_pos,
+                            },
+                            style: styles[style_id].clone(),
+                        });
+                        break;
+                    } else if c == '.' {
+                        seen_a_dot = true;
+                    }
+
+                    num.push(c);
+                    ending_ofs = end_pos;
+
+                    fold_style(&mut styles, &mut token_style_id, style_id);
+                }
+
+                let num = num.parse()?;
+                tokens.push(S {
+                    inner: Token::Num(num),
+                    span: Span {
+                        inner: starting_offset..ending_ofs,
+                    },
+                    style: styles[token_style_id].clone(),
+                });
+
+                // if the last char is a `.` it's not actually part of the number; see above
+                if let Some(extra) = extra_dot_token {
+                    tokens.push(extra);
+                }
+            }
             c => {
                 let mut word = String::from(c);
                 let mut end = end_ofs;
@@ -220,7 +285,7 @@ fn collate(
                     let _ = char_iter.next();
                 }
 
-                use {Token::*, crate::Keyword::*, Op::*, crate::Sigil::*};
+                use {crate::Keyword::*, crate::Sigil::*, Op::*, Token::*};
                 let inner = match &*word {
                     "+" => Operator(Add),
                     "-" => Operator(Sub),
@@ -243,10 +308,6 @@ fn collate(
                     "do" => Keyword(Do),
                     "using" => Keyword(Using),
                     "get" => Keyword(Get),
-                    // "same" => Keyword(Same),
-                    // "different" => Keyword(Different),
-                    // "more" => Keyword(More),
-                    // "less" => Keyword(Less),
                     "also" => Keyword(Also),
                     "and" => Keyword(And),
                     "not" => Keyword(Not),
@@ -260,6 +321,8 @@ fn collate(
                     "takes" => Keyword(Takes),
                     "does" => Keyword(Does),
                     "otherwise" | "else" => Keyword(Else),
+                    "emit" => Keyword(Emit),
+                    "from" => Keyword(From),
 
                     _ => Ident(word),
                 };

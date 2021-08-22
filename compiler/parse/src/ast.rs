@@ -31,19 +31,21 @@ impl Display for Statement {
 #[derive(Debug, Clone)]
 pub enum Expr {
     If(If),
-    Assign(Assign),
     BinOp(BinOp),
 
-    UnOp(UnOp), // UnOp(S<UnOp>),
+    UnOp(UnOp),
     Call(Call),
 
-    Num(f64), // TODO
+    Num(f64),
+    String(String),
     Ident(Ident),
     List(List),
+    Assign(Assign),
 
-    Print(Box<Expr>),
+    Print(S<Box<Expr>>),
+    Get(Get),
     Block(Block),
-     //TODO: is op
+    //TODO: is op
 }
 
 impl Display for Expr {
@@ -53,14 +55,16 @@ impl Display for Expr {
         match self {
             Assign(a) => write!(fmt, "{}", a),
             Block(b) => write!(fmt, "{}", b),
-            Print(p) => write!(fmt, "({})!", p),
+            Print(p) => write!(fmt, "({})!", p.inner),
             If(i) => write!(fmt, "{}", i),
             Call(c) => write!(fmt, "{}", c),
             BinOp(b) => write!(fmt, "{}", b),
             UnOp(u) => write!(fmt, "{}", u),
             Num(n) => write!(fmt, "{}", n),
+            String(s) => write!(fmt, "\"{}\"", s),
             Ident(i) => write!(fmt, "{}", i),
             List(l) => write!(fmt, "{}", l),
+            Get(g) => write!(fmt, "{}", g),
         }
     }
 }
@@ -139,6 +143,19 @@ impl Display for Assign {
         write!(f, "{} = {}", self.name.inner, self.to.inner)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Get {
+    pub index: Box<S<Expr>>,
+    pub from: Box<S<Expr>>,
+}
+
+impl Display for Get {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({})[{}]", self.from.inner, self.index.inner)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Block {
     pub body: Vec<S<Statement>>,
@@ -213,13 +230,28 @@ impl Display for BinOp {
 }
 
 #[derive(Debug, Clone)]
+pub enum UnaryOperator {
+    Neg,
+    Not,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UnaryOperator::Neg => write!(f, "-"),
+            UnaryOperator::Not => write!(f, "not "),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct UnOp {
-    pub op: S<Op>,
+    pub op: S<UnaryOperator>,
     pub expr: Box<S<Expr>>,
 }
 
 impl Display for UnOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.op.inner, self.expr.inner)
+        write!(f, "({}{})", self.op.inner, self.expr.inner)
     }
 }
