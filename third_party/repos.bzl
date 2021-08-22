@@ -24,6 +24,9 @@ BAZEL_SKYLIB_SHA = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952d
 LLVM_VER = "llvmorg-13.0.0-rc1"
 LLVM_SHA = "7697c5716914c281ef7e656f3f1bb2fb4004c3d7ae223be83f9d05c01c02f81b"
 
+RULES_RUST_VER = "8ae83f07c268352aa845699d7a0afbc73e3c7f07"
+
+
 def conditionally(excludes, next_func, **kwargs):
     if kwargs["name"] not in excludes:
         next_func(**kwargs)

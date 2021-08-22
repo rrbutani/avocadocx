@@ -146,7 +146,13 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
         let list = start_list()
             .then(delimited(expr.clone(), Sigil::Comma))
             .then(end_list())
-            .map(|_| todo!())
+            .map(|((start, content), end)| {
+                S{
+                    span: content.iter().fold(start.clone() | start.clone(), |acc, i| acc | i.clone()) | end.clone(),
+                    style: content.iter().fold(start.clone() & start.clone(), |acc, i| acc & i.clone()) & end.clone(),
+                    inner: Expr::List(ast::List(content)),
+                }
+            })
             .labelled("list");
 
         let num = filter(|t: &Tok| matches!(t.inner, Token::Num(_)))
@@ -275,6 +281,7 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
             })
             .labelled("list get");
 
+        // TODO: the trailing_dot logic is never run!
         let block = start_block()
             .then(delimited(expr.clone(), Sigil::Dot))
             .then(dot().or_not())
@@ -406,13 +413,30 @@ pub fn statement() -> impl Parser<Tok, S<Statement>, Error = Simple<Tok, Span>> 
         .then(ident())
         .then(inside())
         .then(expr())
-        .map(|n| todo!());
+        .map(|(((((r, expr), f), binding), i), iteree)| S {
+            span: r.clone() | expr.clone() | f.clone() | binding.clone() | i.clone() | iteree.clone(),
+            style:  r.clone() & expr.clone() & f.clone() & binding.clone() & i.clone() & iteree.clone(),
+            inner: Statement::For(ast::For {
+                name: binding,
+                list: Box::new(iteree),
+                body: Box::new(expr),
+            }),
+        });
 
     let while_loop = while_loop()
         .then(expr())
         .then(run())
         .then(expr())
-        .map(|n| todo!());
+        .map(|(((start, cond), run), body)| {
+            S{
+                span: start.clone() | body.clone(),
+                style: start.clone() & cond.clone() & run.clone() & body.clone(),
+                inner:Statement::While(ast::While{
+                    cond: Box::new(cond),
+                    body: Box::new(body),
+                }),
+            }
+        });
 
     let proc = procedure()
         .then(ident())
@@ -420,7 +444,15 @@ pub fn statement() -> impl Parser<Tok, S<Statement>, Error = Simple<Tok, Span>> 
         .then(delimited(ident(), Sigil::Comma))
         .then(does())
         .then(expr())
-        .map(|n| todo!());
+        .map(|(((((p, name), t), args), d), body)| S {
+            span: args.iter().fold(p.clone() | name.clone() | t.clone(), |acc, a| acc | a.clone()) | d.clone() | body.clone(),
+            style: args.iter().fold(p.clone() & name.clone() & t.clone(), |acc, a| acc & a.clone()) & d.clone() & body.clone(),
+            inner: Statement::Procedure(ast::Procedure {
+                name,
+                args,
+                body: Box::new(body),
+            }),
+        });
 
     proc.or(while_loop).or(for_loop).or(expr_statement)
 }

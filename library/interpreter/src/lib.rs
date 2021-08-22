@@ -9,6 +9,7 @@
 )]
 
 use abogado_parse::ast::*;
+use abogado_parse::ast::{Statement, Expr};
 use abogado_lex::token::Op::*;
 use std::collections::HashMap;
 
@@ -20,11 +21,10 @@ enum Value {
 
 impl Value {
     pub fn falsey(&self) -> bool {
-        use Self::*;
         match self {
-            Num(f) => f.partial_eq(0.0),
-            String(s) => s.is_empty,
-            List(l) => l.is_empty() || l.all(|v| v.falsey()),
+            Value::Num(f) => f.partial_eq(0.0),
+            Value::String(s) => s.is_empty,
+            Value::List(l) => l.is_empty() || l.all(|v| v.falsey()),
         }
     }
     pub fn truthy(&self) -> bool {
@@ -35,12 +35,30 @@ impl Value {
 #[derive(Default, Debug)]
 struct Namespace {
     inner: HashMap<String, Value>,
-    parent: Option<Box<Namespace>>,
+    child: Option<Box<Namespace>>,
 }
 
 impl Namespace{
     pub fn resolve(s: &str) -> Option<Value> {
-        inner.get(s).or_else(|| parent.map(|p| parent.resolve()))
+        self.child.map(|c| c.resolve()).or_else(|| inner.get(s))
+    }
+
+    pub fn push(&mut self, new: HashMap<String, Value>) {
+        if self.child.is_some() {
+            self.child.push(new)
+        }
+        else{
+            self.child = Some(new)
+        }
+    }
+
+    pub fn pop(&mut self) {
+        if self.child.is_some(){
+            self.child.pop()
+        }
+        else {
+            self.child = None
+        }
     }
 }
 
@@ -89,8 +107,14 @@ fn run_expr(ctx: &mut Context, e: Expr) -> Result<Value, ()> {
                 _ => todo!("other operator permutations");
             }
         },
-        Expr::Call(Call{name, args}) => {let (params, body) = ctx.functions.get(name).or_else(|| todo!("unknown func"));
-            todo!("zip args with params, insert into namespace as new scope, and execute (pop scope when done)")
+        Expr::Call(Call{name, args}) => {
+            let (params, body) = ctx.functions.get(name).or_else(|| todo!("unknown func"));
+            let args = args.map(|a| run_expr(ctx, a).unwrap_or_else(|| todo!("rip")));
+            let bindings = params.zip(args).collect();
+            ctx.namespace.push(bindings);
+            let retval = run_expr(ctx, body);
+            ctx.namespace.pop();
+            retval
         },
         Expr::Get(Get{list, index}) => {
             let list = run_expr(ctx, list)?;

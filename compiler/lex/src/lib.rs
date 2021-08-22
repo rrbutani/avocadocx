@@ -213,13 +213,21 @@ fn collate(
 
                 let mut extra_dot_token = None;
 
-                while let Some(((start, end_pos), c, style_id)) = char_iter.next() {
-                    if !(c.is_numeric() || c == '.') {
+                while let Some(((_start, _end_pos), c, _style_id)) = char_iter.peek() {
+                    if !(c.is_numeric() || *c == '.') {
                         break;
+                    }
+
+                    let ((start, end_pos), c, style_id) = if let Some(x) = char_iter.next() {
+                        x
+                    } else {
+                        unreachable!();
+                    };
+
                     // if this is our second dot or if it's not followed by
                     // a numeric char, it's not part
                     // of the number:
-                    } else if c == '.'
+                    if c == '.'
                         && (seen_a_dot
                             || char_iter
                                 .peek()

@@ -70,7 +70,7 @@ impl Display for Expr {
 }
 
 #[derive(Debug, Clone)]
-pub struct List(Vec<S<Expr>>);
+pub struct List(pub Vec<S<Expr>>);
 impl Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -128,7 +128,7 @@ impl Display for Procedure {
                 .iter()
                 .map(|a| a.inner.to_string())
                 .collect::<Vec<_>>()
-                .join("\n"),
+                .join(", "),
             self.body.inner
         )
     }

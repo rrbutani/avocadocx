@@ -15,6 +15,7 @@ use std::path::Path;
 use structopt::StructOpt;
 
 use abogado_common::{Docx, get::{self, SourceFromFileError, SourceFromGoogleDocsError}};
+use avocadocx_interpreter;
 
 // TODO: maybe have a driver crate?
 
@@ -133,11 +134,13 @@ async fn main() -> color_eyre::Result<()> {
 
     // let exp = abogado_parse::parser::expr();
     use abogado_parse::Parser as _;
-    let program = abogado_parse::statement().repeated().parse(tokens);
+    let program = abogado_parse::statement().repeated().parse(tokens).unwrap();
 
-    for statement in program.unwrap() {
+    for statement in program {
         println!("{}", statement.inner);
     }
+
+    run_program(program);
 
     Ok(())
 }
