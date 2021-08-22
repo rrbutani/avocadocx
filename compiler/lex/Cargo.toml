@@ -27,6 +27,7 @@ is-it-maintained-open-issues = { repository = "rrbutani/avocadocx" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+chumsky = "0.3.2"
 docx-rs = "0.2"
 thiserror = "1.0"
 

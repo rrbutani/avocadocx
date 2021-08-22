@@ -1,69 +1,225 @@
-use std::ops::{Deref, DerefMut};
+use std::fmt::{self, Display};
+use std::ops::{BitAnd, BitOr, Deref, DerefMut};
 
-use abogado_lex::token::Token;
+use abogado_lex::{spanned::S, Op, Span, Style, Token};
 use Token::*;
 
-
-#[derive(Debug)]
-pub struct Spanned<T>(pub T, pub Span);
-
-impl<T> Deref for Spanned<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for Spanned<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-type S<T> = Spanned<T>;
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Expr(S<Expr>),
-    While(S<While>),
+    While(While),
     // Until(Expr, Expr),
-    For(S<For>),
-    Procedure(S<Procedure>),
+    For(For),
+    Procedure(Procedure),
 }
 
-#[derive(Debug)]
+impl Display for Statement {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Statement::*;
+
+        match self {
+            Expr(e) => write!(fmt, "{}", e.inner),
+            While(w) => write!(fmt, "{}", w),
+            For(f) => write!(fmt, "{}", f),
+            Procedure(p) => write!(fmt, "{}", p),
+        }?;
+
+        write!(fmt, ";")
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
-    Assign(S<Assign>),
-    Block(S<Block>),
-    Print(S<Box<Expr>>),
-    If(S<If>),
-    Call(S<Call>),
-    BinOp(S<BinOp>),
-    UnOp(S<UnOp>),// UnOp(S<UnOp>),
-    Num(S<f64>),
+    If(If),
+    Assign(Assign),
+    BinOp(BinOp),
+
+    UnOp(UnOp), // UnOp(S<UnOp>),
+    Call(Call),
+
+    Num(f64), // TODO
     Ident(Ident),
+    List(List),
+
+    Print(Box<Expr>),
+    Block(Block),
+     //TODO: is op
 }
 
+impl Display for Expr {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Expr::*;
 
+        match self {
+            Assign(a) => write!(fmt, "{}", a),
+            Block(b) => write!(fmt, "{}", b),
+            Print(p) => write!(fmt, "({})!", p),
+            If(i) => write!(fmt, "{}", i),
+            Call(c) => write!(fmt, "{}", c),
+            BinOp(b) => write!(fmt, "{}", b),
+            UnOp(u) => write!(fmt, "{}", u),
+            Num(n) => write!(fmt, "{}", n),
+            Ident(i) => write!(fmt, "{}", i),
+            List(l) => write!(fmt, "{}", l),
+        }
+    }
+}
 
-#[derive(Debug)]
-struct Ident(String, Span);
-#[derive(Debug)]
-pub struct While { cond: Expr, body: Expr}
-#[derive(Debug)]
-pub struct For{name: Ident, list: Expr, body: Expr}
-#[derive(Debug)]
-pub struct Procedure{name: Ident, args: Vec<Ident>, body: Expr}
-#[derive(Debug)]
-pub struct Assign{name: Ident, to: Box<Expr>}
-#[derive(Debug)]
-pub struct Block{body: Vec<Statement>, end: Option<Expr>}
-#[derive(Debug)]
-pub struct If{cond: Box<Expr>, then: Box<Expr>, otherwise: Option<Expr>}
-#[derive(Debug)]
-pub struct Call{name: Ident, args: Vec<Expr>}
-#[derive(Debug)]
-pub struct BinOp{lhs: Box<Expr>, op: Op, rhs: Box<Expr>}
-#[derive(Debug)]
-pub struct UnOp{op: Op, expr: Box<Expr>}
+#[derive(Debug, Clone)]
+pub struct List(Vec<S<Expr>>);
+impl Display for List {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}]",
+            self.0
+                .iter()
+                .map(|a| a.inner.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
+    }
+}
+
+pub type Ident = String;
+
+#[derive(Debug, Clone)]
+pub struct While {
+    pub cond: Box<S<Expr>>,
+    pub body: Box<S<Expr>>,
+}
+impl Display for While {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "while {} do {}", self.cond.inner, self.body.inner)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct For {
+    pub name: S<Ident>,
+    pub list: Box<S<Expr>>,
+    pub body: Box<S<Expr>>,
+}
+impl Display for For {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "for {} in {} do {}",
+            self.name.inner, self.list.inner, self.body.inner
+        )
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Procedure {
+    pub name: S<Ident>,
+    pub args: Vec<S<Ident>>,
+    pub body: Box<S<Expr>>,
+}
+impl Display for Procedure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "function {} ({}) {}",
+            self.name.inner,
+            self.args
+                .iter()
+                .map(|a| a.inner.to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            self.body.inner
+        )
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Assign {
+    pub name: S<Ident>,
+    pub to: Box<S<Expr>>,
+}
+impl Display for Assign {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} = {}", self.name.inner, self.to.inner)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub body: Vec<S<Statement>>,
+    pub end: Option<Box<S<Expr>>>,
+}
+impl Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        for s in self.body.iter() {
+            write!(f, "    ")?;
+            write!(f, "{}", s.inner)?;
+            writeln!(f)?;
+        }
+
+        if let Some(ref last) = self.end {
+            write!(f, "    ")?;
+            write!(f, "{}", last.inner)?;
+            writeln!(f)?;
+        }
+
+        write!(f, "}}")
+    }
+}
+#[derive(Debug, Clone)]
+pub struct If {
+    pub cond: Box<S<Expr>>,
+    pub then: Box<S<Expr>>,
+    pub otherwise: Option<Box<S<Expr>>>,
+}
+impl Display for If {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "if {} then {}", self.cond.inner, self.then.inner)?;
+        if let Some(ref e) = self.otherwise {
+            write!(f, " otherwise {}", e.inner)?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Call {
+    pub name: S<Ident>,
+    pub args: Vec<S<Expr>>,
+}
+impl Display for Call {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.name.inner,
+            self.args
+                .iter()
+                .map(|a| a.inner.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+#[derive(Debug, Clone)]
+pub struct BinOp {
+    pub lhs: Box<S<Expr>>,
+    pub op: S<Op>,
+    pub rhs: Box<S<Expr>>,
+}
+impl Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "({} {} {})",
+            self.lhs.inner, self.op.inner, self.rhs.inner
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnOp {
+    pub op: S<Op>,
+    pub expr: Box<S<Expr>>,
+}
+
+impl Display for UnOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.op.inner, self.expr.inner)
+    }
+}

@@ -8,11 +8,21 @@
     html_root_url = "https://docs.rs/abogado-lex/0.0.0", // remember to bump!
 )]
 
-mod token;
-use docx_rs::{DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
-use token::{Inner, Keyword, Op, Sigil, Style, Token};
+pub mod token;
+pub mod style;
+pub mod span;
+pub mod spanned;
 
-use crate::token::Span;
+use docx_rs::{DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
+use thiserror::Error;
+
+pub use token::{
+    Token, Keyword, Sigil, Op,
+};
+pub use style::Style;
+pub use span::Span;
+
+type S = spanned::S<Token>;
 
 #[derive(Debug, Clone)]
 struct Splatted {
@@ -66,17 +76,21 @@ fn splat_docx(doc: &Docx) -> Splatted {
     }
 }
 
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum LexError {
+    #[error("unexpected end of file; was expecting a {looking_for:?}")]
     UnexpectedEof { looking_for: Option<String> },
+    #[error("unexpected closing quote")]
     UnexpectedClosingQuote,
 }
+// TODO: span these ^
 
 fn collate(
     Splatted {
         tagged_chars,
         mut styles,
     }: Splatted,
-) -> Result<Vec<Token>, LexError> {
+) -> Result<Vec<S>, LexError> {
     let mut tokens = vec![];
 
     let char_iter = tagged_chars.iter().scan(0, |byte_offset, (c, tag)| {
@@ -132,12 +146,12 @@ fn collate(
                     string.push(c);
                 };
 
-                tokens.push(Token {
+                tokens.push(S {
+                    inner: Token::StringConst(string),
                     span: Span {
                         inner: start_offset..end_offset,
                     },
                     style: styles[token_style_id].clone(),
-                    inner: Inner::StringConst(string),
                 })
             }
             OPEN_QUOTE => {
@@ -169,12 +183,12 @@ fn collate(
                     string.push(c);
                 };
 
-                tokens.push(Token {
+                tokens.push(S {
+                    inner: Token::StringConst(string),
                     span: Span {
                         inner: start_offset..end_offset,
                     },
                     style: styles[token_style_id].clone(),
-                    inner: Inner::StringConst(string),
                 })
             }
             c if WHITESPACE.contains(c) => {
@@ -206,7 +220,7 @@ fn collate(
                     let _ = char_iter.next();
                 }
 
-                use token::{Inner::*, Keyword::*, Op::*, Sigil::*};
+                use {Token::*, crate::Keyword::*, Op::*, crate::Sigil::*};
                 let inner = match &*word {
                     "+" => Operator(Add),
                     "-" => Operator(Sub),
@@ -223,33 +237,34 @@ fn collate(
                     "." => Sigil(Dot),
                     ";" => Sigil(Semicolon),
 
-                    "set" => KeyWord(Set),
-                    "is" => KeyWord(Is),
-                    "do" => KeyWord(Do),
-                    "using" => KeyWord(Using),
-                    "get" => KeyWord(Get),
-                    // "same" => KeyWord(Same),
-                    // "different" => KeyWord(Different),
-                    // "more" => KeyWord(More),
-                    // "less" => KeyWord(Less),
-                    "also" => KeyWord(Also),
-                    "and" => KeyWord(And),
-                    "not" => KeyWord(Not),
-                    "while" => KeyWord(While),
-                    "keep" => KeyWord(Keep),
-                    "until" => KeyWord(Until),
-                    "run" => KeyWord(Run),
-                    "for" => KeyWord(For),
-                    "in" => KeyWord(In),
-                    "procedure" => KeyWord(Procedure),
-                    "takes" => KeyWord(Takes),
-                    "does" => KeyWord(Does),
-                    "otherwise" | "else" => KeyWord(Else),
+                    "set" => Keyword(Set),
+                    "to" => Keyword(To),
+                    "is" => Keyword(Is),
+                    "do" => Keyword(Do),
+                    "using" => Keyword(Using),
+                    "get" => Keyword(Get),
+                    // "same" => Keyword(Same),
+                    // "different" => Keyword(Different),
+                    // "more" => Keyword(More),
+                    // "less" => Keyword(Less),
+                    "also" => Keyword(Also),
+                    "and" => Keyword(And),
+                    "not" => Keyword(Not),
+                    "while" => Keyword(While),
+                    "keep" => Keyword(Keep),
+                    "until" => Keyword(Until),
+                    "run" => Keyword(Run),
+                    "for" => Keyword(For),
+                    "in" => Keyword(In),
+                    "procedure" => Keyword(Procedure),
+                    "takes" => Keyword(Takes),
+                    "does" => Keyword(Does),
+                    "otherwise" | "else" => Keyword(Else),
 
                     _ => Ident(word),
                 };
 
-                tokens.push(Token {
+                tokens.push(S {
                     span: Span {
                         inner: start_ofs..end,
                     },
@@ -263,17 +278,17 @@ fn collate(
     Ok(tokens)
 }
 
-pub fn lex_docx(doc: &Docx) -> (Result<Vec<Token>, LexError>, String) {
+pub fn lex_docx(doc: &Docx) -> (Result<Vec<S>, LexError>, String) {
     let splatted = splat_docx(doc);
     let full_string = splatted.tagged_chars.iter().map(|p| p.0).collect();
 
     (collate(splatted), full_string)
 }
 
-pub fn lex_cado(inp: String) -> (Result<Vec<Token>, LexError>, String) {
+pub fn lex_cado(inp: String) -> (Result<Vec<S>, LexError>, String) {
     let splatted = Splatted {
         tagged_chars: inp.chars().map(|c| (c, 0)).collect(),
-        styles: vec![],
+        styles: vec![Default::default()],
     };
 
     (collate(splatted), inp)

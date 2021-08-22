@@ -9,54 +9,158 @@
 )]
 
 mod ast;
+
 use abogado_lex as lex;
-use lex::Token;
 
-peg::parser!{
-    grammar parser() for &[Token] {
-        use ast::Spanned as S;
-        use ast::Expr;
-        use ast::Expr::*;
-        use lex::Token::*;
-        use lex::Sigil::*;
-        use lex::Keyword::*;
-        use lex::Op::*;
+use chumsky::prelude::*;
+pub use chumsky::Parser;
 
-        pub rule expr() -> Expr = precedence!{
-            a:(@) Add b:@ {Expr::BinOp(S(BinOp(Box::new(a), Add, Box::new(b)), a | b))}
-            --
-            a:(@) Mul b:@ {Expr::BinOp(S(BinOp(Box::new(a), Mul, Box::new(b)), a | b))}
-            --
-            a:Sub b:@ {Expr::UnOp(S(UnOp(Sub, Box::new(a)), a | b))}
-            --
-            a:$(Do) name:$(Ident) b:$(Using) args:expr() ** Comma
-                {Expr::Call(S(Call(name, args), a | (args.last().unwrap_or(b))))}
-            StartBlock s:statement()* e:expr()? {Expr::Block(Block(s, e))}
-            e:expr() b:$(Exclamation) {Expr::Print(S(Print(e), e | b))}
-            cond:expr() Question e:expr() (Else other:expr())?
-                {Expr::If(S(If(cond, e, other) cond | other))}
-            f:$(Num) {Expr::Num(S(Num(f), f.span))}
-            i:$(Ident) {Expr::Ident(Ident(i))}
+use ast::{Expr, Ident, If, Statement};
+use lex::{
+    spanned::S,
+    Keyword::{self, *},
+    Sigil, Span, Token,
+};
+
+type Tok = S<Token>;
+macro_rules! kw_filters {
+    ($($kw:ident => $kw_var:tt),* $(,)?) => {$(
+        #[allow(unused)]
+        fn $kw() -> impl Clone + Parser<Tok, Tok, Error = Simple<Tok, Span>> {
+            filter::<_, _, Simple<Tok, Span>>(|t: &Tok| matches!(t.inner, Token::Keyword(Keyword::$kw_var)))
         }
+    )*}
+}
 
-        rule while_loop() -> Statement {
-            a:$(While) cond:expr() Keep e:expr()
-                {Expr::Statement(S(Statement::While(cond, e), a | e))}
-        }
+kw_filters! {
+    set        => Set,
+    to         => To,
+    is         => Is,
+    call       => Do,
+    using      => Using,
+    get        => Get,
+    same       => Same,
+    different  => Different,
+    more       => More,
+    less       => Less,
+    also       => Also,
+    and        => And,
+    not        => Not,
+    while_     => While,
+    keep       => Keep,
+    until      => Until,
+    run        => Run,
+    for_loop   => For,
+    inside     => In,
+    procedure  => Procedure,
+    takes      => Takes,
+    does       => Does,
+    otherwise  => Else,
+}
 
-        rule for_loop() -> Statement {
-            a:$(Run) body:expr() For i:$(Ident) In e:expr()
-                {Expr::Statement(S(Statement::For(body, i, e)), a | e)}
+macro_rules! sigil_filters {
+    ($($sigil:ident => $sigil_var:tt),* $(,)?) => {$(
+        #[allow(unused)]
+        fn $sigil() -> impl Clone + Parser<Tok, Tok, Error = Simple<Tok, Span>> {
+            filter::<_, _, Simple<Tok, Span>>(|t: &Tok| matches!(t.inner, Token::Sigil(Sigil::$sigil_var)))
         }
+    )*}
+}
 
-        rule proc() -> Statement {
-            a:$(Procedure) name:$(Ident) Takes args:$(Ident) ** Comma Does body:expr()
-                {Statement::Procedure(S(Procedure(name, args, body)), a | body)}
-        }
+sigil_filters! {
+    start_list  => StartList,
+    end_list    => EndList,
+    start_block => StartBlock,
+    end_block   => EndBlock,
+    comma       => Comma,
+    question    => Question,
+    exclamation => Exclamation,
+    dot         => Dot,
+    semicolon   => Semicolon,
+}
 
-        pub rule statement() -> Statement {
-            s:((e:expr() p:$(Sigil(Dot) / Sigil(Semicolon))) {Statement::Expr(S(Expr(e), )}
-                / while_loop() / for_loop() / proc())) {s}
+fn ident() -> impl Parser<Tok, S<Ident>, Error = Simple<Tok, Span>> {
+    filter(|t: &Tok| matches!(t.inner, Token::Ident(_))).map(|t: Tok| {
+        t.map(|tok| match tok {
+            Token::Ident(ident) => ident,
+            _ => unreachable!(),
+        })
+    })
+}
+
+// TODO
+//
+// eventually support:
+//   - inner
+//   - inner as well as inner
+//   - inner,+ inner, and inner
+fn comma_delimited<T>(
+    inner: impl Clone + Parser<Tok, S<T>, Error = Simple<Tok, Span>>,
+) -> impl Clone + Parser<Tok, Vec<S<T>>, Error = Simple<Tok, Span>> {
+    let comma = filter(|tok: &Tok| matches!(tok.inner, Token::Sigil(Sigil::Comma)));
+
+    inner
+        .clone()
+        .chain(comma.clone().padding_for(inner.clone()).repeated())
+        .or_not()
+        .map(|m| m.unwrap_or(vec![]))
+}
+
+
+pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
+    recursive::<Tok, S<Expr>, _, _, Simple<Tok, Span>>(|expr| {
+        let assign = set()
+            .then(ident())
+            .then(to())
+            .then(expr.clone())
+            .map(|(((set, name), to), expr)| S {
+                inner: Expr::Assign(ast::Assign {
+                    name: name.clone(),
+                    to: Box::new(expr.clone()),
+                }),
+                span: set.clone() | to.clone(),
+                style: set & name & to & expr,
+            });
+
+        let conditional = question().padding_for(expr.clone())
+            .then(question())
+            .then(expr.clone())
+            .then(otherwise().then(expr.clone()).or_not())
+            .map(|(((cond, ques), body), else_)| {
+                let mut style = cond.clone() & ques.clone() & body.clone();
+                let mut span = cond.clone() | ques | body.clone();
+
+                let otherwise = if let Some((otherwise, else_)) = else_ {
+                    style = style & otherwise.clone() & else_.clone();
+                    span = span | otherwise | else_.clone();
+
+                    Some(Box::new(else_))
+                } else {
+                    None
+                };
+
+                S {
+                    style, span, inner: Expr::If(If {
+                        cond: Box::new(cond),
+                        then: Box::new(body),
+                        otherwise,
+                    })
+                }
+            });
+
+        assign
+            .or(ident().map(|i| i.map(Expr::Ident)))
+            .or(conditional)
+    })
+}
+
+pub fn statement() -> impl Parser<Tok, S<Statement>, Error = Simple<Tok, Span>> {
+    let expr = expr().then(dot()).map(|(exp, punc)| {
+        S{inner: Statement::Expr(exp.clone()),
+            span: exp.clone() | punc.clone(),
+            style: exp.clone() & punc.clone(),
         }
-    }
+    });
+
+    expr
 }

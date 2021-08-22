@@ -40,6 +40,8 @@ name = "avocadocx"
 [dependencies]
 abogado-common = "0.0.0"
 abogado-lex = "0.0.0"
+abogado-parse = "0.0.0"
+chumsky = "0.3.2"
 
 color-eyre = "0.5" # TODO: something is borked; this should build on stable but doesn't
 structopt = "0.3"
