@@ -6,6 +6,7 @@ authors = [
     "Joseph Ryan <josephryan3.14+crates@gmail.com>"
 ]
 edition = "2018"
+resolver = "2"
 
 description = """TODO"""
 documentation = "https://docs.rs/avocadocx"
@@ -37,7 +38,13 @@ path = "bin/desktop.rs"
 name = "avocadocx"
 
 [dependencies]
+abogado-common = "0.0.0"
+abogado-lex = "0.0.0"
+
+color-eyre = "0.5" # TODO: something is borked; this should build on stable but doesn't
 structopt = "0.3"
+thiserror = "1.0"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 
 [features]
 compile = []
@@ -48,22 +55,41 @@ rustdoc-args = ["--cfg", "docs"]
 all-features = true
 default-target = "x86_64-unknown-linux-gnu"
 
-
 [workspace]
 members = [
     # Compiler
     "compiler/common",
     "compiler/lex",
     "compiler/parse",
-    "compiler/ast",
     "compiler/passes",
     "compiler/codegen",
 
     # Libraries
+    "library/interpreter",
     "library/runtime",
     "library/std",
-    "library/interpreter",
 
     # Web
     "bin/web",
 ]
+
+[patch.crates-io]
+"abogado-common" = { path = "compiler/common" }
+"abogado-lex" = { path = "compiler/lex" }
+"abogado-parse" = { path = "compiler/parse" }
+"abogado-passes" = { path = "compiler/passes" }
+"abogado-codegen" = { path = "compiler/codegen" }
+
+"avocadocx-interpreter" = { path = "library/interpreter" }
+"avocadocx-runtime" = { path = "library/runtime" }
+"avocadocx-std" = { path = "library/std" }
+
+"avocadocx-web" = { path = "bin/web" }
+
+# TODO: switch to: git = "https://github.com/rrbutani/docx-rs.git"
+"docx-rs" = { path = "./docx-rs/docx-core" }
+
+[package.metadata.raze]
+workspace_path = "//crates2"
+package_aliases_dir = "crates2"
+genmode = "Remote"

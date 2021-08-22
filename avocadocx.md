@@ -58,7 +58,7 @@ expr:
   set <ident> to <expr>
   <block>
   <expr> ! # prints
-  is <expr> (the same as | different than | more than | less than) <expr>
+  is <expr> (same as | different than | more than | less than) <expr>
   <expr> ? (\n)* <expr> (otherwise <expr>)? # if
   do <ident> using <list>
   <expr> <binop> <expr> # +, -, *, /

@@ -7,11 +7,3 @@
     html_logo_url = "{{{ TODO }}}",
     html_root_url = "https://docs.rs/abogado-ast/0.0.0", // remember to bump!
 )]
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

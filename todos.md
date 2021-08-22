@@ -10,8 +10,6 @@
       + produces tokens with the metadata attached
     - `abogado-parse`
       + goes from the tokens in `lex` to the ast in `ast`
-    - `abogado-ast`
-      + just has the ast type and the visitor trait
     - `abogado-passes`
       + has a pass manager (you can add passes and they wrap, etc.; returns an impl PassPipeline)
       + should have passes like:
@@ -82,6 +80,12 @@
   - [ ] fix the email address on commits?
 
   - [ ] tests that take .docx inputs and check stderr, etc.
+
+  - [ ] make a PR for `docx-rs`
+
+  - [ ] fix compilation on stable
+
+  - [ ] superscript for exponentiation
 
 # Questions
   - [ ] do we want to have a printable form for the extra attributes?
