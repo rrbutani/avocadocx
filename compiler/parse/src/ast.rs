@@ -163,7 +163,7 @@ pub struct Block {
 }
 impl Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{")?;
+        writeln!(f, "{{")?;
         for s in self.body.iter() {
             write!(f, "    ")?;
             write!(f, "{}", s.inner)?;
@@ -239,7 +239,7 @@ impl Display for UnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UnaryOperator::Neg => write!(f, "-"),
-            UnaryOperator::Not => write!(f, "not "),
+            UnaryOperator::Not => write!(f, "NOT "),
         }
     }
 }

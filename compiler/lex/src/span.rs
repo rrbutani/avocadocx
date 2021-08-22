@@ -25,7 +25,7 @@ impl From<Range<usize>> for Span {
 }
 
 impl Span {
-    fn union(
+    pub fn union(
         &self,
         Span {
             inner: Range { start, end },

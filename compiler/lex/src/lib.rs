@@ -13,7 +13,7 @@ pub mod spanned;
 pub mod style;
 pub mod token;
 
-use std::num::ParseFloatError;
+use std::{convert::TryInto, num::ParseFloatError};
 
 use docx_rs::{DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
 use thiserror::Error;
@@ -259,6 +259,20 @@ fn collate(
                     tokens.push(extra);
                 }
             }
+            c if TryInto::<Sigil>::try_into(&*String::from(c)).is_ok() => {
+                tokens.push(S {
+                    span: Span { inner: start_ofs..end_ofs },
+                    style: styles[style_id].clone(),
+                    inner: Token::Sigil(TryInto::<Sigil>::try_into(&*String::from(c)).unwrap()),
+                })
+            },
+            c if TryInto::<Op>::try_into(&*String::from(c)).is_ok() => {
+                tokens.push(S {
+                    span: Span { inner: start_ofs..end_ofs },
+                    style: styles[style_id].clone(),
+                    inner: Token::Operator(TryInto::<Op>::try_into(&*String::from(c)).unwrap()),
+                })
+            },
             c => {
                 let mut word = String::from(c);
                 let mut end = end_ofs;

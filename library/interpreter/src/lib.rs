@@ -69,7 +69,26 @@ fn run_expr(ctx: &mut Context, e: Expr) -> Result<Value, ()> {
                 _ => unreachable!();
             }
         },
-        Expr::BinOp(e) => todo!(),
+        Expr::UnOp(BinOp{lhs, op, rhs}) => {
+            let lhs = run_expr(ctx, lhs.inner)?;
+            let rhs = run_expr(ctx, rhs.inner)?;
+            match op.inner {
+                Add => match (lhs, rhs) {
+                    (Value::Num(a), Value::Num(b)) => {a + b},
+                    (Value::List(l), b) => {l.append(b)},
+                },
+                Sub => match (lhs, rhs) {
+                    (Value::Num(a), Value::Num(b)) => {a - b},
+                },
+                Mul => match (lhs, rhs) {
+                    (Value::Num(a), Value::Num(b)) => {a * b},
+                },
+                Div => match (lhs, rhs) {
+                    (Value::Num(a), Value::Num(b)) => {a / b},
+                },
+                _ => todo!("other operator permutations");
+            }
+        },
         Expr::Call(Call{name, args}) => {let (params, body) = ctx.functions.get(name).or_else(|| todo!("unknown func"));
             todo!("zip args with params, insert into namespace as new scope, and execute (pop scope when done)")
         },
@@ -117,8 +136,8 @@ pub fn run_program(program: Vec<Statement>) -> Result<(), ()> {
     let mut context = Context::Default();
 
     for statement in program {
-        run_statement(&mut context, statement);
+        run_statement(&mut context, statement)?;
     }
 
-    todo!()
+    Ok(())
 }

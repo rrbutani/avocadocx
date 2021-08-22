@@ -128,7 +128,7 @@ async fn main() -> color_eyre::Result<()> {
     // let tokens = chumsky::stream::SpannedIterStream::<_, abogado_lex::Span>::new(tokens.iter().map(|t| (t, t.span)));
     let tokens = tokens.into_iter().map(|t| { let s = t.span.clone(); (t, s) }).collect::<Vec<_>>();
 
-    println!("{:#?}", tokens.iter().map(|(t, s)| t).collect::<Vec<_>>());
+    println!("{:#?}", tokens.iter().map(|(t, _s)| t).collect::<Vec<_>>());
     // println!("{:#?}", tokens.iter().map(|(t, s)| format!("{:#?}", t)).collect::<Vec<_>>());
 
     // let exp = abogado_parse::parser::expr();

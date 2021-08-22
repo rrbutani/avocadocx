@@ -28,6 +28,7 @@ macro_rules! kw_filters {
         #[allow(unused)]
         fn $kw() -> impl Clone + Parser<Tok, Tok, Error = Simple<Tok, Span>> {
             filter::<_, _, Simple<Tok, Span>>(|t: &Tok| matches!(t.inner, Token::Keyword(Keyword::$kw_var)))
+                .labelled(stringify!($kw_var))
         }
     )*}
 }
@@ -61,6 +62,7 @@ macro_rules! sigil_filters {
         #[allow(unused)]
         fn $sigil() -> impl Clone + Parser<Tok, Tok, Error = Simple<Tok, Span>> {
             filter::<_, _, Simple<Tok, Span>>(|t: &Tok| matches!(t.inner, Token::Sigil(Sigil::$sigil_var)))
+                .labelled(stringify!($sigil))
         }
     )*}
 }
@@ -129,7 +131,8 @@ fn delimited<T>(
     inner: impl Clone + Parser<Tok, S<T>, Error = Simple<Tok, Span>>,
     delimiter: Sigil,
 ) -> impl Clone + Parser<Tok, Vec<S<T>>, Error = Simple<Tok, Span>> {
-    let comma = filter(|tok: &Tok| matches!(tok.inner, Token::Sigil(sigil)));
+    let comma =
+        filter(move |tok: &Tok| matches!(tok.inner, Token::Sigil(sigil) if sigil == delimiter));
 
     inner
         .clone()
@@ -143,33 +146,32 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
         let list = start_list()
             .then(delimited(expr.clone(), Sigil::Comma))
             .then(end_list())
-            .map(|_| todo!());
+            .map(|_| todo!())
+            .labelled("list");
 
-        let num = filter(|t: &Tok| matches!(t.inner, Token::Num(_))).map(|t: Tok| {
-            t.map(|tok| match tok {
-                Token::Num(num) => Expr::Num(num),
-                _ => unreachable!(),
+        let num = filter(|t: &Tok| matches!(t.inner, Token::Num(_)))
+            .map(|t: Tok| {
+                t.map(|tok| match tok {
+                    Token::Num(num) => Expr::Num(num),
+                    _ => unreachable!(),
+                })
             })
-        });
-
-        let string = filter(|t: &Tok| matches!(t.inner, Token::StringConst(_))).map(|t: Tok| {
-            t.map(|tok| match tok {
-                Token::StringConst(s) => Expr::String(s),
-                _ => unreachable!(),
+            .labelled("num");
+        let string = filter(|t: &Tok| matches!(t.inner, Token::StringConst(_)))
+            .map(|t: Tok| {
+                t.map(|tok| match tok {
+                    Token::StringConst(s) => Expr::String(s),
+                    _ => unreachable!(),
+                })
             })
-        });
-
-        let atom = ident()
-            .map(|i| i.map(Expr::Ident))
-            .or(num)
-            .or(string)
-            .or(list);
+            .labelled("string");
 
         let op = un_not()
             .map(|t| t.map(|_| UnaryOperator::Not))
             .or(un_neg().map(|t| t.map(|_| UnaryOperator::Neg)));
-        let un_op = op.or_not().then(atom).map(|(op, arg)| {
-            if let Some(op) = op {
+
+        let atom = recursive::<Tok, S<Expr>, _, _, Simple<Tok, Span>>(|atom| {
+            let un_op = op.then(atom.clone()).map(|(op, arg): (S<UnaryOperator>, S<Expr>)| {
                 S {
                     span: op.clone() | arg.clone(),
                     style: op.clone() & arg.clone(),
@@ -178,9 +180,16 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                         expr: Box::new(arg),
                     }),
                 }
-            } else {
-                arg
-            }
+            })
+            .labelled("unary op");
+
+            ident()
+                .map(|i| i.map(Expr::Ident))
+                .or(num)
+                .or(string)
+                .or(list)
+                .or(un_op)
+                .labelled("atom")
         });
 
         let extract_operator_from_token = |t: Tok| {
@@ -193,8 +202,9 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
         let op = mul()
             .map(extract_operator_from_token)
             .or(div().map(extract_operator_from_token));
-        let product = un_op.clone()
-            .then(op.then(un_op).repeated())
+        let product = atom
+            .clone()
+            .then(op.then(atom).repeated())
             .foldl(|lhs, (op, rhs)| S {
                 span: lhs.clone() | op.clone() | rhs.clone(),
                 style: lhs.clone() & op.clone() & rhs.clone(),
@@ -203,12 +213,14 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                     op,
                     rhs: Box::new(rhs),
                 }),
-            });
+            })
+            .labelled("product");
 
         let op = add()
             .map(extract_operator_from_token)
             .or(sub().map(extract_operator_from_token));
-        let sum = product.clone()
+        let sum = product
+            .clone()
             .then(op.then(product.clone()).repeated())
             .foldl(|lhs, (op, rhs)| S {
                 span: lhs.clone() | op.clone() | rhs.clone(),
@@ -218,51 +230,67 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                     op,
                     rhs: Box::new(rhs),
                 }),
-            });
+            })
+            .labelled("sum");
 
         let op = eq()
             .map(extract_operator_from_token)
             .or(lt().map(extract_operator_from_token))
             .or(gt().map(extract_operator_from_token));
-        let compare = sum.clone().then(op.then(sum.clone()).repeated()).foldl(|lhs, (op, rhs)| S {
-            span: lhs.clone() | op.clone() | rhs.clone(),
-            style: lhs.clone() & op.clone() & rhs.clone(),
-            inner: Expr::BinOp(BinOp {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
-            }),
-        });
+        let compare = sum
+            .clone()
+            .then(op.then(sum.clone()).repeated())
+            .foldl(|lhs, (op, rhs)| S {
+                span: lhs.clone() | op.clone() | rhs.clone(),
+                style: lhs.clone() & op.clone() & rhs.clone(),
+                inner: Expr::BinOp(BinOp {
+                    lhs: Box::new(lhs),
+                    op,
+                    rhs: Box::new(rhs),
+                }),
+            })
+            .labelled("compare");
 
-        let emit = emit().then(expr.clone()).then(exclamation()).map(|((emit, expr), exclam)| {
-            S {
+        let emit = emit()
+            .then(expr.clone())
+            .then(exclamation())
+            .map(|((emit, expr), exclam)| S {
                 span: emit.clone() | expr.clone() | exclam.clone(),
                 style: emit.clone() & expr.clone() & exclam.clone(),
-                inner: expr.map(Box::new),
-            }
-        });
+                inner: Expr::Print(expr.map(Box::new)),
+            })
+            .labelled("print");
 
-        let get = get().then(expr.clone()).then(from()).then(expr.clone()).map(|(((g, idx), f), list)| {
-            S {
+        let get = get()
+            .then(expr.clone())
+            .then(from())
+            .then(expr.clone())
+            .map(|(((g, idx), f), list)| S {
                 span: g.clone() | idx.clone() | f.clone() | list.clone(),
                 style: g.clone() & idx.clone() & f.clone() & list.clone(),
                 inner: Expr::Get(ast::Get {
                     index: Box::new(idx),
                     from: Box::new(list),
-                })
-            }
-        });
+                }),
+            })
+            .labelled("list get");
 
         let block = start_block()
             .then(delimited(expr.clone(), Sigil::Dot))
             .then(dot().or_not())
             .then(end_block())
             .map(|(((s, exprs), trailing_dot), e)| S {
-                span: exprs.iter().fold(s.clone() | s.clone(), |acc, e| acc | e.clone()) | e.clone(),
-                style: exprs.iter().fold(s.clone() & s.clone(), |acc, e| acc & e.clone()) & e.clone(),
+                span: exprs
+                    .iter()
+                    .fold(s.clone() | s.clone(), |acc, e| acc | e.clone())
+                    | e.clone(),
+                style: exprs
+                    .iter()
+                    .fold(s.clone() & s.clone(), |acc, e| acc & e.clone())
+                    & e.clone(),
                 inner: Expr::Block(Block {
                     body: {
-                        let exprs = if trailing_dot.is_some() && exprs.len() >= 1 {
+                        let exprs = if trailing_dot.is_none() && exprs.len() >= 1 {
                             &exprs[..exprs.len() - 1]
                         } else {
                             &exprs[..]
@@ -271,11 +299,14 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                         // the outer S<Statement>'s span should include the `.`... but it doesn't!
                         //
                         // this is okay for now (TODO)
-                        exprs.iter().map(|e| S {
-                            span: e.span.clone(),
-                            style: e.style.clone(),
-                            inner: Statement::Expr(e.clone()),
-                        }).collect()
+                        exprs
+                            .iter()
+                            .map(|e| S {
+                                span: e.span.clone(),
+                                style: e.style.clone(),
+                                inner: Statement::Expr(e.clone()),
+                            })
+                            .collect()
                     },
                     end: {
                         if trailing_dot.is_none() && exprs.len() >= 1 {
@@ -283,22 +314,29 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                         } else {
                             None
                         }
-                    }
-                })
-            });
+                    },
+                }),
+            })
+            .labelled("block");
 
         let call = call()
             .then(ident())
             .then(using())
             .then(delimited(expr.clone(), Sigil::Comma))
-            .map(|(((c, func), u, ), args)| S {
-                span: args.iter().fold(c.clone() | func.clone() | u.clone(), |acc, a| acc | a.clone()),
-                style: args.iter().fold(c.clone() & func.clone() & u.clone(), |acc, a| acc & a.clone()),
-                inner: Expr::Call(Call {
-                    name: func,
-                    args,
-                })
-            });
+            .map(|(((c, func), u), args)| S {
+                span: args
+                    .iter()
+                    .fold(c.clone() | func.clone() | u.clone(), |acc, a| {
+                        acc | a.clone()
+                    }),
+                style: args
+                    .iter()
+                    .fold(c.clone() & func.clone() & u.clone(), |acc, a| {
+                        acc & a.clone()
+                    }),
+                inner: Expr::Call(Call { name: func, args }),
+            })
+            .labelled("call");
 
         let assign =
             set()
@@ -312,7 +350,8 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                     }),
                     span: set.clone() | to.clone(),
                     style: set & name & to & expr,
-                });
+                })
+                .labelled("assignment");
 
         let conditional = is()
             .then(expr.clone())
@@ -341,14 +380,15 @@ pub fn expr() -> impl Clone + Parser<Tok, S<Expr>, Error = Simple<Tok, Span>> {
                         otherwise,
                     }),
                 }
-            });
+            })
+            .labelled("conditional");
 
         conditional
             .or(assign)
-            // .or(call)
-            // .or(block)
-            // .or(get)
-            // .or(emit)
+            .or(call)
+            .or(block)
+            .or(get)
+            .or(emit)
             .or(compare)
     })
 }
